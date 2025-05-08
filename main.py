@@ -14,6 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 load_dotenv()
 
+
 def take_screenshot():
     file_name = "./static/screenshot.png"
     wh = pyautogui.size()
@@ -23,6 +24,7 @@ def take_screenshot():
     )
     return Image.open(file_name)
 
+
 def trans(text):
     client = OpenAI()
     completion = client.chat.completions.create(
@@ -30,25 +32,17 @@ def trans(text):
         messages=[
             {
                 "role": "user",
-                "content": "あなたは英語の文章を日本語に翻訳するプロの翻訳者です。以下の英語の文章を日本語に翻訳してください。翻訳結果以外は一切必要ありません。なお翻訳する文章が無い時は""と出力しなさい\n\n"
-                + '"""'
-                + text
-                + '"""',
+                "content": "あなたは英語の文章を日本語に翻訳するプロの翻訳者です。以下の英語の文章を日本語に翻訳してください。翻訳結果以外は一切必要ありません。なお翻訳する文章が無い時は"
+                "と出力しなさい\n\n" + '"""' + text + '"""',
             }
         ],
     )
     return completion.choices[0].message.content
 
 
-
-
 def width_height(img):
     width, height = img.size
     return [width, height]
-
-
-
-
 
 
 def get_translation_and_vertices(file_name):
@@ -61,12 +55,13 @@ def get_translation_and_vertices(file_name):
     response = client.text_detection(image=image)
     for page in response.full_text_annotation.pages:
         print("page")
+
         def retFunc(block):
             block_text = ""
             for paragraph in block.paragraphs:
                 for word in paragraph.words:
-                    word_text = ''.join([symbol.text for symbol in word.symbols])
-                    block_text += word_text + ' '
+                    word_text = "".join([symbol.text for symbol in word.symbols])
+                    block_text += word_text + " "
             block_text = block_text.strip()
             if len(block_text) < 6 and "+" in block_text:
                 return
@@ -77,7 +72,7 @@ def get_translation_and_vertices(file_name):
             vertices = block.bounding_box.vertices
             vertices = [(vertex.x, vertex.y) for vertex in vertices]
             ret.append([block_text, translated_text, vertices])
-        
+
         with ThreadPoolExecutor(max_workers=50) as executor:
             for block in page.blocks:
                 print("block")
@@ -88,6 +83,7 @@ def get_translation_and_vertices(file_name):
             retFunc(block)
         """
     return ret
+
 
 """
 take_screenshot()
@@ -101,6 +97,8 @@ from flask import Flask
 
 app = Flask(__name__)
 CORS(app)
+
+
 @app.route("/")
 def index():
     print("start")
@@ -110,6 +108,7 @@ def index():
     ret = get_translation_and_vertices("./static/screenshot.png")
     print(ret)
     return {"ret": [ret, size]}
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8020)
