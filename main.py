@@ -97,6 +97,23 @@ ret = get_translation_and_vertices("my_screenshot.png")
 print(ret)
 """
 
+
+
+from PIL import Image
+import numpy as np
+
+def calculate_white_black_ratio(img_old, img_new, threshold: int = 128):
+    arr_new = np.array(img_new)
+    arr_old = np.array(img_old)
+
+    white_ratio_new = np.sum(arr_new >= threshold) / arr_new.size
+    white_ratio_old = np.sum(arr_old >= threshold) / arr_old.size
+
+    return [white_ratio_new, white_ratio_old]
+
+
+
+
 from flask import Flask
 
 app = Flask(__name__)
@@ -104,12 +121,26 @@ CORS(app)
 @app.route("/")
 def index():
     print("start")
+    if not os.path.exists("./static/screenshot.png"):
+        ## 空の画像を作成
+        img = Image.new("RGB", (100, 100), (255, 255, 255))
+        img.save("./static/screenshot.png")
+    img_old = Image.open("./static/screenshot.png").copy()
     take_screenshot()
     img = Image.open("./static/screenshot.png")
+    #　グレースケール化
+    img_old = img_old.convert("L")
+    img = img.convert("L")
+    #白と黒の割合を計算
+    white_black_ratio = calculate_white_black_ratio(img_old, img)
+    if abs(white_black_ratio[0] - white_black_ratio[1]) < 0.01:
+        print("no-change")
+        return {"info": "no change"}
     size = width_height(img)
     ret = get_translation_and_vertices("./static/screenshot.png")
     print(ret)
-    return {"ret": [ret, size]}
+    print("change")
+    return {"info": "change", "ret": [ret, size]}
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8020)
