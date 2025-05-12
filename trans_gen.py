@@ -1,12 +1,12 @@
 from google.cloud import vision
 from PIL import ImageDraw, ImageFont
 import PIL.Image
-import deepl
+#import deepl
 import os
 
 
-AUTH_KEY = os.getenv("DEEPL_KEY")
-TRANSLATOR = deepl.Translator(auth_key=AUTH_KEY)
+#AUTH_KEY = os.getenv("DEEPL_KEY")
+#TRANSLATOR = deepl.Translator(auth_key=AUTH_KEY)
 
 INT_INF = 1 << 31
 
@@ -49,7 +49,7 @@ def wrap_text(text: str, font: ImageFont, max_width: int) -> str:
         result += line
     return result
 
-def find_font_size(text: str, vertices: list[vision.Vertex]) -> tuple[int, str]:
+def find_font_size(text: str, vertices: list[vision.Vertex], mag: float = 1) -> tuple[int, str]:
     """
     バウンディングボックスの幅に収まるフォントサイズを二分探索で求める。 
 
@@ -65,12 +65,14 @@ def find_font_size(text: str, vertices: list[vision.Vertex]) -> tuple[int, str]:
     best_size, wrapped_text: tuple[int, str]
         フォントサイズ, 折り返したテキスト
     """
-    top_left = vertices[0]
+    print("fun vertices", vertices)
+    top_left = vertices[0] 
     bottom_right = vertices[2]
-
+    print("top_left", top_left)
+    print("bottom_right", bottom_right)
     min_size, max_size = 0, 10000
-    max_width = bottom_right.x - top_left.x
-    max_height = bottom_right.y - top_left.y
+    max_width = bottom_right.x * mag - top_left.x * mag
+    max_height = bottom_right.y * mag - top_left.y * mag
 
     wrapped_text = ""
     while max_size - min_size > 1:
@@ -94,7 +96,7 @@ def find_font_size(text: str, vertices: list[vision.Vertex]) -> tuple[int, str]:
             best_size = min_size
     return best_size - 1, wrapped_text
 
-
+"""
 def generate_translated_image(file_name: str) -> PIL.Image:
     client = vision.ImageAnnotatorClient()
     with open(file_name, "rb") as image_file:
@@ -131,3 +133,4 @@ def generate_translated_image(file_name: str) -> PIL.Image:
             )
 
     return dest
+"""

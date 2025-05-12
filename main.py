@@ -11,7 +11,7 @@ import textwrap
 from PIL import ImageFont
 from flask_cors import CORS
 from concurrent.futures import ThreadPoolExecutor
-
+import trans_gen
 load_dotenv()
 
 
@@ -45,7 +45,7 @@ def width_height(img):
     return [width, height]
 
 
-def get_translation_and_vertices(file_name):
+def get_translation_and_vertices_and_fontSize(file_name, mag):
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./key.json"
     client = vision.ImageAnnotatorClient()
     with open(file_name, "rb") as image_file:
@@ -70,8 +70,20 @@ def get_translation_and_vertices(file_name):
 
             print(translated_text)
             vertices = block.bounding_box.vertices
+            print("mag", mag)
+            print("vertices", vertices)
+            try:
+                font_size, wrapped = trans_gen.find_font_size(
+                    translated_text, vertices, mag
+                )
+            except Exception as e:
+                print("Error in find_font_size:", e)
+                return
+            print("ret-item", [block_text, translated_text, vertices, font_size])
+            print("font_size", font_size)
+            print("vertices", vertices)
             vertices = [(vertex.x, vertex.y) for vertex in vertices]
-            ret.append([block_text, translated_text, vertices])
+            ret.append([block_text, translated_text, vertices, font_size])
 
         with ThreadPoolExecutor(max_workers=50) as executor:
             for block in page.blocks:
@@ -82,6 +94,7 @@ def get_translation_and_vertices(file_name):
             print("block")
             retFunc(block)
         """
+    print("done")
     return ret
 
 
@@ -93,7 +106,7 @@ ret = get_translation_and_vertices("my_screenshot.png")
 print(ret)
 """
 
-from flask import Flask
+from flask import Flask, request
 
 app = Flask(__name__)
 CORS(app)
@@ -105,8 +118,12 @@ def index():
     take_screenshot()
     img = Image.open("./static/screenshot.png")
     size = width_height(img)
-    ret = get_translation_and_vertices("./static/screenshot.png")
-    print(ret)
+    print("size", request.args.get("width"), size)
+    print("request.args.get", request.args.get("width"))
+    mag =  float(request.args.get("width")) / size[0]
+    print("mag", mag)
+    ret = get_translation_and_vertices_and_fontSize("./static/screenshot.png", mag)
+    print("ret", ret)
     return {"ret": [ret, size]}
 
 
