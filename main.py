@@ -133,7 +133,7 @@ def index():
     img = img.convert("L")
     #白と黒の割合を計算
     white_black_ratio = calculate_white_black_ratio(img_old, img)
-    if abs(white_black_ratio[0] - white_black_ratio[1]) < 0.01:
+    if abs(white_black_ratio[0] - white_black_ratio[1]) < 0.0001:
         print("no-change")
         return {"info": "no change"}
     size = width_height(img)
