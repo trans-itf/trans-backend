@@ -11,6 +11,8 @@ import textwrap
 from PIL import ImageFont
 from flask_cors import CORS
 from concurrent.futures import ThreadPoolExecutor
+import trans_gen
+from flask import request
 
 load_dotenv()
 
@@ -51,7 +53,7 @@ def width_height(img):
 
 
 
-def get_translation_and_vertices(file_name):
+def get_translation_and_vertices(file_name, mag):
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./key.json"
     client = vision.ImageAnnotatorClient()
     with open(file_name, "rb") as image_file:
@@ -65,8 +67,8 @@ def get_translation_and_vertices(file_name):
             block_text = ""
             for paragraph in block.paragraphs:
                 for word in paragraph.words:
-                    word_text = ''.join([symbol.text for symbol in word.symbols])
-                    block_text += word_text + ' '
+                    word_text = "".join([symbol.text for symbol in word.symbols])
+                    block_text += word_text + " "
             block_text = block_text.strip()
             if len(block_text) < 6 and "+" in block_text:
                 return
@@ -75,8 +77,21 @@ def get_translation_and_vertices(file_name):
 
             print(translated_text)
             vertices = block.bounding_box.vertices
+            print("mag", mag)
+            print("vertices", vertices)
+            try:
+                font_size, wrapped = trans_gen.find_font_size(
+                    translated_text, vertices, mag
+                )
+            except Exception as e:
+                print("Error in find_font_size:", e)
+                return
+            print("ret-item", [block_text, translated_text, vertices, font_size])
+            print("font_size", font_size)
+            print("vertices", vertices)
             vertices = [(vertex.x, vertex.y) for vertex in vertices]
-            ret.append([block_text, translated_text, vertices])
+            ret.append([block_text, translated_text, vertices, font_size])
+
         
         with ThreadPoolExecutor(max_workers=50) as executor:
             for block in page.blocks:
@@ -129,6 +144,7 @@ def index():
     take_screenshot()
     img = Image.open("./static/screenshot.png")
     #　グレースケール化
+
     img_old = img_old.convert("L")
     img = img.convert("L")
     #白と黒の割合を計算
@@ -137,7 +153,8 @@ def index():
         print("no-change")
         return {"info": "no change"}
     size = width_height(img)
-    ret = get_translation_and_vertices("./static/screenshot.png")
+    mag =  float(request.args.get("width")) / size[0]
+    ret = get_translation_and_vertices("./static/screenshot.png", mag)
     print(ret)
     print("change")
     return {"info": "change", "ret": [ret, size]}
