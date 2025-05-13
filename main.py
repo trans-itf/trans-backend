@@ -133,9 +133,23 @@ from flask import Flask
 
 app = Flask(__name__)
 CORS(app)
+
 @app.route("/")
 def index():
     print("start")
+    take_screenshot()
+    img = Image.open("./static/screenshot.png")
+    size = width_height(img)
+    mag =  float(request.args.get("width")) / size[0]
+    ret = get_translation_and_vertices("./static/screenshot.png", mag)
+    print(ret)
+    print("change")
+    return {"info": "change", "ret": [ret, size]}
+
+
+@app.route("/change")
+def change():
+    print("change-start")
     if not os.path.exists("./static/screenshot.png"):
         ## 空の画像を作成
         img = Image.new("RGB", (100, 100), (255, 255, 255))
@@ -152,12 +166,8 @@ def index():
     if abs(white_black_ratio[0] - white_black_ratio[1]) < 0.0001:
         print("no-change")
         return {"info": "no change"}
-    size = width_height(img)
-    mag =  float(request.args.get("width")) / size[0]
-    ret = get_translation_and_vertices("./static/screenshot.png", mag)
-    print(ret)
-    print("change")
-    return {"info": "change", "ret": [ret, size]}
+    return {"info": "change"}
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8020)
