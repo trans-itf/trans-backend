@@ -1,20 +1,38 @@
 from google.cloud import vision
-from PIL import ImageDraw, ImageFont
-import PIL.Image
-import deepl
+from PIL import ImageFont
+from openai import OpenAI
+from dotenv import load_dotenv
+
+from concurrent.futures import ThreadPoolExecutor
 import os
 
 
-AUTH_KEY = os.getenv("DEEPL_KEY")
-TRANSLATOR = deepl.Translator(auth_key=AUTH_KEY)
+load_dotenv()
+
 
 INT_INF = 1 << 31
 
 
+def trans(text):
+    client = OpenAI()
+    completion = client.chat.completions.create(
+        model="gpt-4.1",
+        messages=[
+            {
+                "role": "user",
+                "content": "あなたは英語の文章を日本語に翻訳するプロの翻訳者です。以下の英語の文章を日本語に翻訳してください。翻訳結果以外は一切必要ありません。なお翻訳する文章が無い時は"
+                "と出力しなさい\n\n" + '"""' + text + '"""',
+            }
+        ],
+    )
+    return completion.choices[0].message.content
+
+
 def get_char_height(font: ImageFont, char: str) -> int:
     if char == "":
-        return (1 << 31)
+        return 1 << 31
     return font.getbbox(char)[3]
+
 
 def wrap_text(text: str, font: ImageFont, max_width: int) -> str:
     """
@@ -49,9 +67,10 @@ def wrap_text(text: str, font: ImageFont, max_width: int) -> str:
         result += line
     return result
 
+
 def find_font_size(text: str, vertices: list[vision.Vertex]) -> tuple[int, str]:
     """
-    バウンディングボックスの幅に収まるフォントサイズを二分探索で求める。 
+    バウンディングボックスの幅に収まるフォントサイズを二分探索で求める。
 
     Parameters
     ----------
@@ -95,39 +114,40 @@ def find_font_size(text: str, vertices: list[vision.Vertex]) -> tuple[int, str]:
     return best_size - 1, wrapped_text
 
 
-def generate_translated_image(file_name: str) -> PIL.Image:
+def get_translation_and_vertices(img):
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./key.json"
     client = vision.ImageAnnotatorClient()
-    with open(file_name, "rb") as image_file:
-        img_data = image_file.read()
+    image = vision.Image(content=img)
 
-    img = vision.Image(content=img_data)
-    res = client.document_text_detection(image=img)
-    dest = PIL.Image.open(file_name)
-    draw = ImageDraw.Draw(dest)
+    response = client.text_detection(image=image)
+    ret = []
+    for page in response.full_text_annotation.pages:
 
-    for page in res.full_text_annotation.pages:
-        for block in page.blocks:
+        def retFunc(block):
             block_text = ""
             for paragraph in block.paragraphs:
                 for word in paragraph.words:
-                    word_text = ''.join([symbol.text for symbol in word.symbols])
-                    block_text += word_text + ' '
+                    word_text = "".join([symbol.text for symbol in word.symbols])
+                    block_text += word_text + " "
+            block_text = block_text.strip()
+            if len(block_text) < 6 and "+" in block_text:
+                return
 
-            translated = TRANSLATOR.translate_text(block_text.strip(), target_lang="JA")
+            translated_text = trans(block_text)
             vertices = block.bounding_box.vertices
-            font_size, wrapped = find_font_size(translated.text.strip(), vertices)
-            font = ImageFont.truetype("NotoSansJP-VF.ttf", font_size)
+            font_size, wrapped_text = find_font_size(translated_text, vertices)
 
-            draw.rectangle(
-                [(vertices[0].x, vertices[0].y), (vertices[2].x, vertices[2].y)],
-                fill=(255, 255, 255),
-                width=1,
-            )
-            draw.text(
-                (vertices[0].x, vertices[0].y),
-                wrapped,
-                fill="black",
-                font=font,
+            vertices = [{"x": vertex.x, "y": vertex.y} for vertex in vertices]
+            ret.append(
+                {
+                    "original": block_text,
+                    "translated": wrapped_text,
+                    "bbox": vertices,
+                    "font_size": font_size,
+                }
             )
 
-    return dest
+        with ThreadPoolExecutor(max_workers=50) as executor:
+            for block in page.blocks:
+                _ = executor.submit(retFunc, block)
+    return ret
