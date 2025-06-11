@@ -11,7 +11,7 @@ timeout = 30
 # ログの設定
 accesslog = "-"
 errorlog = "-"
-loglevel = "info"
+loglevel = "debug"
 
 # リクエスト上限
 max_requests = 1000
