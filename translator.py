@@ -29,7 +29,7 @@ def isTranslationNeeded(text):
         ],
         text_format=IsTranslationNeededClass,
     )
-    return response.output_parsed["isNeed"]
+    return response.output_parsed.isNeed
 
 def trans(text):
     client = OpenAI()
