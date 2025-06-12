@@ -1,6 +1,7 @@
 from google.cloud import vision
 from PIL import ImageFont
 from openai import OpenAI
+from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from concurrent.futures import ThreadPoolExecutor
@@ -12,6 +13,23 @@ load_dotenv()
 
 INT_INF = 1 << 31
 
+class IsTranslationNeededClass(BaseModel):
+    isNeed: bool
+    reason: str
+
+def isTranslationNeeded(text):
+    response = client.responses.parse(
+        model="gpt-4.1",
+        input=[
+            {
+                "role": "user",
+                "content": "あなたは、数式やただの数字、記号など、翻訳にかける必要が一切ないか否かを判定する優秀なシステムです。以下の文書を、判定してください。もし、翻訳にかける必要がある場合は、isNeedをTrueに、そうでない場合は、isNeedをFalseにしなさい。また、reasonに理由も書きなさい。"
+                            + "\n\n\"\"" + text + "\"\"",
+            },
+        ],
+        text_format=IsTranslationNeededClass,
+    )
+    return response.output_parsed["isNeed"]
 
 def trans(text):
     client = OpenAI()
@@ -20,8 +38,7 @@ def trans(text):
         messages=[
             {
                 "role": "user",
-                "content": "あなたは英語の文章を日本語に翻訳するプロの翻訳者です。以下の英語の文章を日本語に翻訳してください。翻訳結果以外は一切必要ありません。なお翻訳する文章が無い時は"
-                "と出力しなさい\n\n" + '"""' + text + '"""',
+                "content": "あなたは英語の文章を日本語に翻訳するプロの翻訳者です。以下の英語の文章を日本語に翻訳してください。翻訳結果以外は一切必要ありません。\\n\n" + '"""' + text + '"""',
             }
         ],
     )
@@ -129,6 +146,9 @@ def get_translation_and_vertices(img):
                     block_text += word_text + " "
             block_text = block_text.strip()
             if len(block_text) < 6 and "+" in block_text:
+                return
+
+            if not isTranslationNeeded(text):
                 return
 
             translated_text = trans(block_text)
