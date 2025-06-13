@@ -2,6 +2,6 @@ flask
 flask-cors
 gunicorn
 openai
-dotenv
+python-dotenv
 pillow
 google-cloud-vision
