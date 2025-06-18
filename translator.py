@@ -27,7 +27,6 @@ def trans(text):
     )
     return completion.choices[0].message.content
 
-
 def get_char_height(font: ImageFont, char: str) -> int:
     if char == "":
         return 1 << 31
@@ -94,7 +93,7 @@ def find_font_size(text: str, vertices: list[vision.Vertex]) -> tuple[int, str]:
     wrapped_text = ""
     while max_size - min_size > 1:
         size = (min_size + max_size) // 2
-        font = ImageFont.truetype("NotoSansJP-VF.ttf", size)
+        font = ImageFont.truetype("/app/fonts/mplus-2p-regular.ttf", size)
         temp_wrapped = wrap_text(text, font, max_width)
 
         # 高さを計算
@@ -103,7 +102,7 @@ def find_font_size(text: str, vertices: list[vision.Vertex]) -> tuple[int, str]:
             if line == "":
                 height += INT_INF
                 continue
-            height += max(get_char_height(font, char) for char in line)
+            height += size
 
         if height > max_height:
             max_size = size
@@ -115,14 +114,13 @@ def find_font_size(text: str, vertices: list[vision.Vertex]) -> tuple[int, str]:
 
 
 def get_translation_and_vertices(img):
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "./key.json"
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/app/key.json"
     client = vision.ImageAnnotatorClient()
     image = vision.Image(content=img)
 
     response = client.text_detection(image=image)
     ret = []
     for page in response.full_text_annotation.pages:
-
         def retFunc(block):
             block_text = ""
             for paragraph in block.paragraphs:

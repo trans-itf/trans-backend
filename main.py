@@ -11,9 +11,9 @@ CORS(app)
 def translate():
     print("start")
     img_file = request.files["screen"]
-    img_data = img_file.read()
     if img_file.filename == "":
         return {"error": "No file provided"}, 400
+    img_data = img_file.read()
     ret = get_translation_and_vertices(img_data)
     return {"result": ret}, 200
 
