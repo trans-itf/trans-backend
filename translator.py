@@ -16,7 +16,7 @@ INT_INF = 1 << 31
 def trans(text):
     client = OpenAI()
     completion = client.chat.completions.create(
-        model="gpt-4.1",
+        model="gpt-4.1-nano",
         messages=[
             {
                 "role": "user",
@@ -128,7 +128,7 @@ def get_translation_and_vertices(img):
                     word_text = "".join([symbol.text for symbol in word.symbols])
                     block_text += word_text + " "
             block_text = block_text.strip()
-            if len(block_text) < 6 and "+" in block_text:
+            if len(block_text) < 6 or  "+" in block_text:
                 return
 
             translated_text = trans(block_text)
